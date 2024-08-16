@@ -8,6 +8,7 @@ Commands:
     cogs            show currently active extensions / cogs
     error           print the traceback of the last unhandled error to chat
 """
+
 import json
 import typing
 import subprocess
@@ -15,7 +16,7 @@ import re
 from io import BytesIO
 from datetime import datetime, timezone
 from os import path, listdir
-from discord import File, errors as discord_errors
+from discord import File, Guild, errors as discord_errors
 from discord.ext import commands
 
 
@@ -26,7 +27,7 @@ class Management(commands.Cog, name='Management'):
         self.cog_re = re.compile(r'\s*src\/cogs\/(.+)\.py\s*\|\s*\d+\s*[+-]+')
 
     async def cog_check(self, ctx):
-        return self.client.user_is_admin(ctx.author)
+        return self.client.user_is_admin(ctx.author.id)
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -36,21 +37,21 @@ class Management(commands.Cog, name='Management'):
         await self.client.change_presence(activity=activity)
 
     @commands.Cog.listener()
-    async def on_guild_join(self, guild):
+    async def on_guild_join(self, guild: Guild):
         self.client.recent_guilds_joined.append(
             (datetime.now(tz=timezone.utc).isoformat()[:19], guild)
         )
         self.client.recent_guilds_joined = self.client.recent_guilds_joined[-10:]
 
     @commands.Cog.listener()
-    async def on_guild_remove(self, guild):
+    async def on_guild_remove(self, guild: Guild):
         self.client.recent_guilds_left.append(
             (datetime.now(tz=timezone.utc).isoformat()[:19], guild)
         )
         self.client.recent_guilds_left = self.client.recent_guilds_left[-10:]
 
     def reload_config(self):
-        with open("../state/config.json") as conffile:
+        with open('../state/config.json') as conffile:
             self.client.config = json.load(conffile)
 
     def crawl_cogs(self, directory='cogs'):
@@ -78,7 +79,7 @@ class Management(commands.Cog, name='Management'):
         description='Load bot extension',
         hidden=True,
     )
-    async def load_extension(self, ctx, extension_name):
+    async def load_extension(self, ctx: commands.Context, extension_name: str):
         for cog_name in self.crawl_cogs():
             if extension_name in cog_name:
                 target_extension = cog_name
@@ -100,16 +101,13 @@ class Management(commands.Cog, name='Management'):
         description='Unload bot extension',
         hidden=True,
     )
-    async def unload_extension(self, ctx, extension_name):
+    async def unload_extension(self, ctx: commands.Context, extension_name: str):
         for cog_name in self.client.extensions:
             if extension_name in cog_name:
                 target_extension = cog_name
                 break
         if target_extension.lower() in 'cogs.management':
-            await ctx.send(
-                f"```diff\n- {target_extension} can't be unloaded" +
-                f"\n+ try reload instead```"
-            )
+            await ctx.send(f"```diff\n- {target_extension} can't be unloaded\n+ try reload instead```")
             return
         if self.client.extensions.get(target_extension) is None:
             return
@@ -126,7 +124,7 @@ class Management(commands.Cog, name='Management'):
         hidden=True,
         aliases=['re']
     )
-    async def reload_extension(self, ctx, extension_name):
+    async def reload_extension(self, ctx: commands.Context, extension_name: str):
         target_extensions = []
         if extension_name == 'all':
             target_extensions = [__name__] + \
@@ -160,7 +158,7 @@ class Management(commands.Cog, name='Management'):
         aliases=['extensions'],
         hidden=True,
     )
-    async def print_cogs(self, ctx):
+    async def print_cogs(self, ctx: commands.Context):
         loaded = self.client.extensions
         unloaded = [x for x in self.crawl_cogs() if x not in loaded]
         response = ['\n[Loaded extensions]'] + ['\n  ' + x for x in loaded]
@@ -195,14 +193,14 @@ class Management(commands.Cog, name='Management'):
         name='git',
         hidden=True,
     )
-    async def git(self, ctx):
+    async def git(self, _: commands.Context):
         """Commands to run git commands on the local repo"""
         pass
 
     @git.command(
         name='pull',
     )
-    async def pull(self, ctx, noreload: typing.Optional[str] = None):
+    async def pull(self, ctx: commands.Context, noreload: typing.Optional[str] = None):
         """Pull the latest changes from github"""
         try:
             await ctx.typing()
@@ -273,6 +271,14 @@ class Management(commands.Cog, name='Management'):
             self.client.maintenance_mode = True
             await self.client.change_presence(activity=self.client.maintenance_activity)
 
+    # ----------------------------------------------
+    # Command to sync slash commands
+    # ----------------------------------------------
+    @commands.command(name='synccmds', hidden=True)
+    async def sync_commands(self, ctx: commands.Context):
+        await self.client.tree.sync()
+        await ctx.send('Commands synced.')
 
-async def setup(client):
+
+async def setup(client: commands.Bot):
     await client.add_cog(Management(client))

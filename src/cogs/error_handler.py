@@ -6,6 +6,7 @@ Commands:
       - traceback       print traceback of stored error
 
 """
+
 # pylint: disable=E0402
 import traceback
 import typing
@@ -24,12 +25,15 @@ class ErrorHandler(commands.Cog, name='ErrorHandler'):
     # Error handler
     # ----------------------------------------------
     @commands.Cog.listener()
-    async def on_command_error(self, ctx, error):
+    async def on_command_error(self, ctx: commands.Context, error):
         if isinstance(error, commands.CommandNotFound):
             return
 
         if not isinstance(ctx.channel, DMChannel):
-            perms = ctx.channel.permissions_for(ctx.guild.get_member(self.client.user.id))
+            if ctx.guild is None:
+                return
+            self_bot = ctx.guild.get_member(self.client.user.id)
+            perms = ctx.channel.permissions_for(self_bot)
             try:
                 if not perms.send_messages:
                     await ctx.author.send("I don't have permission to write in this channel.")
@@ -125,7 +129,7 @@ class ErrorHandler(commands.Cog, name='ErrorHandler'):
         hidden=True,
         aliases=['errors']
     )
-    async def error(self, ctx, n: typing.Optional[int] = None):
+    async def error(self, ctx: commands.Context, n: typing.Optional[int] = None):
         """Show a concise list of stored errors"""
 
         if n is not None:
@@ -151,10 +155,10 @@ class ErrorHandler(commands.Cog, name='ErrorHandler'):
                 + call_info
                 + f']\nException: {str(exc)[:200]}'
             )
-            if i % NUM_ERRORS_PER_PAGE == NUM_ERRORS_PER_PAGE-1:
+            if i % NUM_ERRORS_PER_PAGE == NUM_ERRORS_PER_PAGE - 1:
                 response.append('```')
                 await ctx.send('\n'.join(response))
-                response = [f'```css']
+                response = ['```css']
         if len(response) > 1:
             response.append('```')
             await ctx.send('\n'.join(response))
@@ -163,9 +167,9 @@ class ErrorHandler(commands.Cog, name='ErrorHandler'):
         name='clear',
         aliases=['delete'],
     )
-    async def error_clear(self, ctx, n: int = None):
+    async def error_clear(self, ctx, n: int = 0):
         """Clear error with index [n]"""
-        if n is None:
+        if n == 0:
             self.client.last_errors = []
             await ctx.send('Error log cleared')
         else:
@@ -179,18 +183,18 @@ class ErrorHandler(commands.Cog, name='ErrorHandler'):
         name='traceback',
         aliases=['tb'],
     )
-    async def error_traceback(self, ctx, n: int = None):
+    async def error_traceback(self, ctx: commands.Context, n: int = 0):
         """Print the traceback of error [n] from the error log"""
         await self.print_traceback(ctx, n)
 
-    async def print_traceback(self, ctx, n):
+    async def print_traceback(self, ctx: commands.Context, n: int):
         error_log = self.client.last_errors
 
         if not error_log:
             await ctx.send('Error log is empty')
             return
 
-        if n is None:
+        if n == 0:
             await ctx.send('Please specify an error index')
             await self.client.get_command('error').invoke(ctx)
             return

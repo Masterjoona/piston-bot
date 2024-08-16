@@ -1,26 +1,26 @@
-"""PistonBot
+"""PistonBot"""
 
-"""
-import json
 import sys
 import traceback
+from discord import AllowedMentions, Intents
+from discord.ext.commands.bot import when_mentioned_or
+from discord.ext.commands import AutoShardedBot, Context
+from discord import Activity, Guild
+import json
 from datetime import datetime, timezone
 from os import path, listdir
-from discord.ext.commands import AutoShardedBot, Context
-from discord import Activity, AllowedMentions, Intents
+from cogs.utils.runner import Runner
 from aiohttp import ClientSession, ClientTimeout
-from discord.ext.commands.bot import when_mentioned_or
 
 
 class PistonBot(AutoShardedBot):
     def __init__(self, *args, **options):
         super().__init__(*args, **options)
-        self.session = None
         with open('../state/config.json') as conffile:
             self.config = json.load(conffile)
         self.last_errors = []
-        self.recent_guilds_joined = []
-        self.recent_guilds_left = []
+        self.recent_guilds_joined: list[tuple[str, Guild]] = []
+        self.recent_guilds_left: list[tuple[str, Guild]] = []
         self.default_activity = Activity(name='emkc.org/run | ./run', type=0)
         self.error_activity = Activity(name='!emkc.org/run | ./run', type=0)
         self.maintenance_activity = Activity(name='undergoing maintenance', type=0)
@@ -29,6 +29,7 @@ class PistonBot(AutoShardedBot):
 
     async def start(self, *args, **kwargs):
         self.session = ClientSession(timeout=ClientTimeout(total=15))
+        self.runner = Runner(self.config['emkc_key'], self.session)
         await super().start(*args, **kwargs)
 
     async def close(self):
@@ -52,9 +53,8 @@ class PistonBot(AutoShardedBot):
                 exc = f'{type(e).__name__}: {e}'
                 print(f'Failed to load extension {extension}\n{exc}')
 
-
-    def user_is_admin(self, user):
-        return user.id in self.config['admins']
+    def user_is_admin(self, user_id: int):
+        return user_id in self.config['admins']
 
     async def log_error(self, error, error_source=None):
         is_context = isinstance(error_source, Context)
@@ -93,7 +93,7 @@ async def on_message(msg):
     prefixes = await client.get_prefix(msg)
     for prefix in prefixes:
         if msg.content.lower().startswith(f'{prefix}run'):
-            msg.content = msg.content.replace(f'{prefix}run', f'/run', 1)
+            msg.content = msg.content.replace(f'{prefix}run', '/run', 1)
             break
     await client.process_commands(msg)
 
