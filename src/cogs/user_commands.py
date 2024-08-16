@@ -11,14 +11,14 @@ class CodeModal(discord.ui.Modal, title="Run Code"):
 
     lang = discord.ui.TextInput(
         label="Language",
-        placeholder="the language of the code",
+        placeholder="The language",
         max_length=50,
     )
 
     code = discord.ui.TextInput(
         label="Code",
         style=discord.TextStyle.long,
-        placeholder="the codes",
+        placeholder="The source code",
     )
 
     # It gets pretty crowded with all these fields
@@ -74,7 +74,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
         )
         self.client.tree.add_command(self.ctx_menu)
 
-    @app_commands.command(name="run", description="Open a modal to run code")
+    @app_commands.command(name="run", description="Open a modal to input code")
     @app_commands.user_install()
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def run(self, interaction: Interaction):
