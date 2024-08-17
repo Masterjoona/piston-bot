@@ -114,16 +114,16 @@ class UserCommands(commands.Cog, name="UserCommands"):
             error_message = str(error.original)
             if error_message:
                 error_message = f'`{error_message}` '
-            await interaction.response.send_message(f'API Error {error_message}- Please try again later')
+            await interaction.response.send_message(f'API Error {error_message}- Please try again later', ephemeral=True)
             await self.client.log_error(error, Interaction)
             return
 
         if isinstance(error.original, AsyncTimeoutError):
-            await interaction.response.send_message(f'API Timeout - Please try again later')
+            await interaction.response.send_message(f'API Timeout - Please try again later', ephemeral=True)
             await self.client.log_error(error, Interaction)
             return
         await self.client.log_error(error, Interaction)
-        await interaction.response.send_message(f"An error occurred: {error}")
+        await interaction.response.send_message(f"An error occurred: {error}", ephemeral=True)
 
     @app_commands.command(name="run_code", description="Open a modal to input code")
     @app_commands.user_install()
@@ -177,11 +177,12 @@ class UserCommands(commands.Cog, name="UserCommands"):
             mention_author=False,
         )
         if isinstance(output, str):
-            await interaction.response.send_message(output)
+            await interaction.response.send_message(output, ephemeral=True)
             return
         [introduction, source, run_output] = output
         if len(source) > 1000:
-            await interaction.response.send_message(introduction + run_output, file=file)
+            output_file = discord.File(filename=file.filename, fp=BytesIO((await file.read())))
+            await interaction.response.send_message(introduction + run_output, file=output_file)
             return
         await interaction.response.send_message("Here is your input:" + source)
         await interaction.followup.send(introduction + run_output)
@@ -205,7 +206,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
                 jump_url=message.jump_url,
             )
             if isinstance(output, str):
-                await interaction.response.send_message(output)
+                await interaction.response.send_message(output, ephemeral=True)
                 return
 
             [introduction, _, run_output] = output
@@ -221,10 +222,12 @@ class UserCommands(commands.Cog, name="UserCommands"):
         )
 
         if isinstance(output, str):
-            await interaction.response.send_modal(
-                NoLang(self.client.runner.get_output_with_codeblock, self.client.log_error, message)
-            )
-            return
+            if "Unsupported language" in output:
+                await interaction.response.send_modal(
+                    NoLang(self.client.runner.get_output_with_codeblock, self.client.log_error, message)
+                )
+                return
+            await interaction.response.send_message(output, ephemeral=True)
         [introduction, _, run_output] = output
         await interaction.response.send_message(introduction + run_output)
 
