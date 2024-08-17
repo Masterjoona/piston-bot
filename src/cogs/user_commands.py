@@ -47,7 +47,8 @@ class SourceCodeModal(discord.ui.Modal, title="Run Code"):
         [introduction, source, run_output] = output
         if len(self.code.value) > 1000:
             file = discord.File(filename=f"source_code.{self.lang.value}", fp=BytesIO(self.code.value.encode('utf-8')))
-            await interaction.response.send_message(introduction + run_output, file=file)
+            await interaction.response.send_message("Here is your input:", file=file)
+            await interaction.followup.send(introduction + run_output)
             return
         await interaction.response.send_message("Here is your input:" + source)
         await interaction.followup.send(introduction + run_output)
@@ -182,7 +183,8 @@ class UserCommands(commands.Cog, name="UserCommands"):
         [introduction, source, run_output] = output
         if len(source) > 1000:
             output_file = discord.File(filename=file.filename, fp=BytesIO((await file.read())))
-            await interaction.response.send_message(introduction + run_output, file=output_file)
+            await interaction.response.send_message("Here is your input:", file=output_file)
+            await interaction.followup.send(introduction + run_output)
             return
         await interaction.response.send_message("Here is your input:" + source)
         await interaction.followup.send(introduction + run_output)
