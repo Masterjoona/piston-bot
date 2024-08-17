@@ -47,7 +47,7 @@ class Run(commands.Cog, name='CodeExecution'):
     async def get_run_output(self, ctx: commands.Context):
         # Get parameters to call api depending on how the command was called (file <> codeblock)
         if ctx.message.attachments:
-            return await self.client.runner.get_output_with_file(
+            [introduction, _, run_output] = await self.client.runner.get_output_with_file(
                 ctx.guild,
                 ctx.author,
                 input_language="",
@@ -58,14 +58,16 @@ class Run(commands.Cog, name='CodeExecution'):
                 file=ctx.message.attachments[0],
                 mention_author=True,
             )
+            return introduction + run_output
 
-        return await self.client.runner.get_output_with_codeblock(
+        [introduction, _, run_output] =  await self.client.runner.get_output_with_codeblock(
             ctx.guild,
             ctx.author,
             content=ctx.message.content,
             mention_author=True,
             needs_strict_re=True,
         )
+        return introduction + run_output
 
     async def delete_last_output(self, user_id):
         try:

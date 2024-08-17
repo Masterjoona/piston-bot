@@ -2,7 +2,6 @@ import re
 import json
 from .errors import PistonInvalidContentType, PistonInvalidStatus, PistonNoOutput
 from discord.ext import commands, tasks
-from discord import Guild, User, Member, Attachment
 from discord.utils import escape_mentions
 from aiohttp import ContentTypeError
 from .codeswap import add_boilerplate
@@ -73,7 +72,16 @@ class Runner:
                 pass
         return True
 
-    async def get_output_with_codeblock(self, guild, author, content, mention_author, needs_strict_re):
+    async def get_output_with_codeblock(
+        self,
+        guild,
+        author,
+        content,
+        mention_author,
+        needs_strict_re,
+        input_lang=None,
+        jump_url=None
+        ):
         if needs_strict_re:
             match = self.run_regex_code_strict.search(content)
         else:
@@ -87,6 +95,9 @@ class Runner:
         if not language:
             language = syntax
 
+        if input_lang:
+            language = input_lang
+
         if language:
             language = language.lower()
 
@@ -97,7 +108,15 @@ class Runner:
             )
 
         return await self.get_run_output(
-            guild, author, source, language, output_syntax, args, stdin, mention_author
+            guild,
+            author,
+            source,
+            language,
+            output_syntax,
+            args,
+            stdin,
+            mention_author,
+            jump_url,
         )
 
     async def get_output_with_file(
@@ -111,6 +130,7 @@ class Runner:
         stdin,
         mention_author,
         content,
+        jump_url=None,
     ):
         MAX_BYTES = 65535
         if file.size > MAX_BYTES:
@@ -152,6 +172,7 @@ class Runner:
             args,
             stdin,
             mention_author,
+            jump_url,
         )
 
     async def get_run_output(
@@ -164,6 +185,7 @@ class Runner:
         args,
         stdin,
         mention_author,
+        jump_url=None,
     ):
         lang = self.languages.get(input_lang, None)
         if not lang:
@@ -178,9 +200,8 @@ class Runner:
         source = add_boilerplate(lang, content)
 
         # Split args at newlines
-        argugments = []
         if args:
-            argugments = [arg for arg in args.strip().split(',') if arg]
+            args = [arg for arg in args.strip().split('\n') if arg]
 
         if not source:
             raise commands.BadArgument('No source code found')
@@ -190,7 +211,7 @@ class Runner:
             'language': lang,
             'version': version,
             'files': [{'content': source}],
-            'args': argugments or '',
+            'args': args or '',
             'stdin': stdin or '',
             'log': 0,
         }
@@ -235,11 +256,11 @@ class Runner:
 
         # Truncate output to be below 2000 char discord limit.
         if len(comp_stderr) > 0:
-            introduction = f'{mention}I received {language_info} compile errors\n'
+            introduction = f'{mention}I received {language_info} compile errors'
         elif len(run['stdout']) == 0 and len(run['stderr']) > 0:
-            introduction = f'{mention}I only received {language_info} error output\n'
+            introduction = f'{mention}I only received {language_info} error output'
         else:
-            introduction = f'Here is your {language_info} output {mention}\n'
+            introduction = f'Here is your {language_info} output {mention}'
         truncate_indicator = '[...]'
         len_codeblock = 7  # 3 Backticks + newline + 3 Backticks
         available_chars = 2000 - len(introduction) - len_codeblock
@@ -248,10 +269,14 @@ class Runner:
                 output[: available_chars - len(truncate_indicator)] + truncate_indicator
             )
 
+        if jump_url:
+            jump_url = f'from running: {jump_url}'
+        introduction = f'{introduction}{jump_url or ""}\n'
+        source = f'```{lang}\n'+ source+ '```\n'
         # Use an empty string if no output language is selected
-        return (
-            introduction
-            + f'```{output_syntax or ""}\n'
-            + output.replace('\0', "")
-            + '```'
-        )
+        output_content = f'```{output_syntax or ""}\n' +  output.replace('\0', "")+ '```'
+        return [
+            introduction,
+            source,
+            output_content
+        ]
