@@ -208,6 +208,11 @@ class UserCommands(commands.Cog, name="UserCommands"):
                 jump_url=message.jump_url,
             )
             if isinstance(output, str):
+                if "Unsupported language" in output:
+                    await interaction.response.send_modal(
+                        NoLang(self.client.runner.get_output_with_codeblock, self.client.log_error, message)
+                    )
+                    return
                 await interaction.response.send_message(output, ephemeral=True)
                 return
 
@@ -230,6 +235,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
                 )
                 return
             await interaction.response.send_message(output, ephemeral=True)
+            return
         [introduction, _, run_output] = output
         await interaction.response.send_message(introduction + run_output)
 
