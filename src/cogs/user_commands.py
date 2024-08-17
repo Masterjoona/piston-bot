@@ -87,7 +87,7 @@ class NoLang(discord.ui.Modal, title="Give lang"):
     )
 
     async def on_submit(self, interaction: discord.Interaction):
-        [introduction, _, run_output]  = await self.get_output_with_codeblock(
+        output  = await self.get_output_with_codeblock(
             guild=interaction.guild,
             author=interaction.user,
             content=self.message.content,
@@ -96,6 +96,10 @@ class NoLang(discord.ui.Modal, title="Give lang"):
             input_lang=self.lang.value,
             jump_url=self.message.jump_url,
         )
+        if isinstance(output, str):
+            await interaction.response.send_message(output, ephemeral=True)
+            return
+        [introduction, _, run_output] = output
         await interaction.response.send_message(introduction+run_output)
 
     async def on_error(
@@ -145,7 +149,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
         await interaction.response.send_modal(SourceCodeModal(self.client.runner.get_run_output, self.client.log_error, language))
 
     @run_code.autocomplete('language')
-    async def autocomplete_callback(self, interaction: discord.Interaction, current: str):
+    async def autocomplete_callback(self, _: discord.Interaction, current: str):
         langs = self.client.runner.get_languages()
         if current:
             langs = [lang for lang in langs if lang.startswith(current)]
@@ -199,7 +203,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
 
             await interaction.response.send_message(introduction+run_output)
             return
-        [introduction, _, run_output] = await self.client.runner.get_output_with_codeblock(
+        output = await self.client.runner.get_output_with_codeblock(
             guild=interaction.guild,
             author=interaction.user,
             content=message.content,
@@ -208,12 +212,12 @@ class UserCommands(commands.Cog, name="UserCommands"):
             jump_url=message.jump_url,
         )
 
-        if "Unsupported language" in run_output:
+        if isinstance(output, str):
             await interaction.response.send_modal(
                 NoLang(self.client.runner.get_output_with_codeblock, self.client.log_error, message)
             )
             return
-
+        [introduction, _, run_output] = output
         await interaction.response.send_message(introduction+run_output)
 
 
