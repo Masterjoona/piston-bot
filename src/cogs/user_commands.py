@@ -51,7 +51,7 @@ class SourceCodeModal(discord.ui.Modal, title="Run Code"):
     # )
 
     async def on_submit(self, interaction: discord.Interaction):
-        [introduction, source, run_output] = await self.get_run_output(
+        output = await self.get_run_output(
             guild=interaction.guild,
             author=interaction.user,
             content=self.code.value,
@@ -61,6 +61,11 @@ class SourceCodeModal(discord.ui.Modal, title="Run Code"):
             stdin=None,
             mention_author=False,
         )
+        if isinstance(output, str):
+            await interaction.response.send_message(output, ephemeral=True)
+            return
+
+        [introduction, source, run_output] = output
         await interaction.response.send_message("Here is your input:"+source)
         await interaction.followup.send(introduction+run_output)
 
@@ -167,7 +172,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
         args: str = "",
         stdin: str = "",
     ):
-        [introduction, source, run_output]  = await self.client.runner.get_output_with_file(
+        output  = await self.client.runner.get_output_with_file(
             guild=interaction.guild,
             author=interaction.user,
             content="",
@@ -178,7 +183,10 @@ class UserCommands(commands.Cog, name="UserCommands"):
             stdin=stdin,
             mention_author=False,
         )
-
+        if isinstance(output, str):
+            await interaction.response.send_message(output)
+            return
+        [introduction, source, run_output] = output
         await interaction.response.send_message(introduction+source)
         await interaction.followup.send(run_output)
 
@@ -188,7 +196,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
         self, interaction: Interaction, message: discord.Message
     ):
         if len(message.attachments) > 0:
-            [introduction, _, run_output]  = await self.client.runner.get_output_with_file(
+            output  = await self.client.runner.get_output_with_file(
                 guild=interaction.guild,
                 author=interaction.user,
                 content=message.content,
@@ -200,7 +208,11 @@ class UserCommands(commands.Cog, name="UserCommands"):
                 mention_author=False,
                 jump_url=message.jump_url,
             )
+            if isinstance(output, str):
+                await interaction.response.send_message(output)
+                return
 
+            [introduction, _, run_output] = output
             await interaction.response.send_message(introduction+run_output)
             return
         output = await self.client.runner.get_output_with_codeblock(
