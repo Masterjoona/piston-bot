@@ -3,7 +3,7 @@ from discord import app_commands, Interaction, Attachment
 from discord.ext import commands
 from .utils.errors import PistonError
 from asyncio import TimeoutError as AsyncTimeoutError
-
+from io import BytesIO
 
 class SourceCodeModal(discord.ui.Modal, title="Run Code"):
     def __init__(self, get_run_output, log_error, language):
@@ -29,27 +29,6 @@ class SourceCodeModal(discord.ui.Modal, title="Run Code"):
         self.add_item(self.lang)
         self.add_item(self.code)
 
-    # It gets pretty crowded with all these fields
-    # So im not sure which to keep if any at all
-
-    # output_syntax = discord.ui.TextInput(
-    #    label="Output Syntax",
-    #    placeholder="the syntax of the output",
-    #    required=False,
-    # )
-
-    # args = discord.ui.TextInput(
-    #    label="Arguments",
-    #    placeholder="the arguments - comma separated",
-    #    required=False,
-    # )
-
-    # stdin = discord.ui.TextInput(
-    #    label="Standard Input",
-    #    placeholder="the standard input",
-    #    required=False,
-    # )
-
     async def on_submit(self, interaction: discord.Interaction):
         output = await self.get_run_output(
             guild=interaction.guild,
@@ -66,8 +45,12 @@ class SourceCodeModal(discord.ui.Modal, title="Run Code"):
             return
 
         [introduction, source, run_output] = output
-        await interaction.response.send_message("Here is your input:"+source)
-        await interaction.followup.send(introduction+run_output)
+        if len(self.code.value) > 1000:
+            file = discord.File(filename=f"source_code.{self.lang.value}", fp=BytesIO(self.code.value.encode('utf-8')))
+            await interaction.response.send_message(introduction + run_output, file=file)
+            return
+        await interaction.response.send_message("Here is your input:" + source)
+        await interaction.followup.send(introduction + run_output)
 
     async def on_error(
         self, interaction: discord.Interaction, error: Exception
@@ -92,7 +75,7 @@ class NoLang(discord.ui.Modal, title="Give lang"):
     )
 
     async def on_submit(self, interaction: discord.Interaction):
-        output  = await self.get_output_with_codeblock(
+        output = await self.get_output_with_codeblock(
             guild=interaction.guild,
             author=interaction.user,
             content=self.message.content,
@@ -105,7 +88,7 @@ class NoLang(discord.ui.Modal, title="Give lang"):
             await interaction.response.send_message(output, ephemeral=True)
             return
         [introduction, _, run_output] = output
-        await interaction.response.send_message(introduction+run_output)
+        await interaction.response.send_message(introduction + run_output)
 
     async def on_error(
         self, interaction: discord.Interaction, error: Exception
@@ -142,16 +125,26 @@ class UserCommands(commands.Cog, name="UserCommands"):
         await self.client.log_error(error, Interaction)
         await interaction.response.send_message(f"An error occurred: {error}")
 
-
-
     @app_commands.command(name="run_code", description="Open a modal to input code")
     @app_commands.user_install()
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def run_code(self, interaction: Interaction, language: str = None):
         if language not in self.client.runner.get_languages(inlude_aliases=True):
-            await interaction.response.send_modal(SourceCodeModal(self.client.runner.get_run_output, self.client.log_error, ""))
+            await interaction.response.send_modal(
+                SourceCodeModal(
+                    self.client.runner.get_run_output,
+                    self.client.log_error,
+                    "",
+                )
+            )
             return
-        await interaction.response.send_modal(SourceCodeModal(self.client.runner.get_run_output, self.client.log_error, language))
+        await interaction.response.send_modal(
+            SourceCodeModal(
+                self.client.runner.get_run_output,
+                self.client.log_error,
+                language,
+            )
+        )
 
     @run_code.autocomplete('language')
     async def autocomplete_callback(self, _: discord.Interaction, current: str):
@@ -172,7 +165,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
         args: str = "",
         stdin: str = "",
     ):
-        output  = await self.client.runner.get_output_with_file(
+        output = await self.client.runner.get_output_with_file(
             guild=interaction.guild,
             author=interaction.user,
             content="",
@@ -187,8 +180,11 @@ class UserCommands(commands.Cog, name="UserCommands"):
             await interaction.response.send_message(output)
             return
         [introduction, source, run_output] = output
-        await interaction.response.send_message(introduction+source)
-        await interaction.followup.send(run_output)
+        if len(source) > 1000:
+            await interaction.response.send_message(introduction + run_output, file=file)
+            return
+        await interaction.response.send_message("Here is your input:" + source)
+        await interaction.followup.send(introduction + run_output)
 
     @app_commands.user_install()
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
@@ -196,7 +192,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
         self, interaction: Interaction, message: discord.Message
     ):
         if len(message.attachments) > 0:
-            output  = await self.client.runner.get_output_with_file(
+            output = await self.client.runner.get_output_with_file(
                 guild=interaction.guild,
                 author=interaction.user,
                 content=message.content,
@@ -213,7 +209,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
                 return
 
             [introduction, _, run_output] = output
-            await interaction.response.send_message(introduction+run_output)
+            await interaction.response.send_message(introduction + run_output)
             return
         output = await self.client.runner.get_output_with_codeblock(
             guild=interaction.guild,
@@ -230,7 +226,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
             )
             return
         [introduction, _, run_output] = output
-        await interaction.response.send_message(introduction+run_output)
+        await interaction.response.send_message(introduction + run_output)
 
 
 async def setup(client):
