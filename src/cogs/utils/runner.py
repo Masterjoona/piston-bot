@@ -49,8 +49,8 @@ class Runner:
                 self.languages[alias] = language
                 self.versions[alias] = runtime['version']
 
-    def get_languages(self):
-        return sorted(set(self.languages.values()))
+    def get_languages(self, inlude_aliases=False):
+        return sorted(set(self.languages.keys() if inlude_aliases else self.languages.values()))
 
     async def send_to_log(self, guild, author, language, source):
         logging_data = {

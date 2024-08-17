@@ -148,14 +148,14 @@ class UserCommands(commands.Cog, name="UserCommands"):
     @app_commands.user_install()
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def run_code(self, interaction: Interaction, language: str = None):
-        if language not in self.client.runner.get_languages():
+        if language not in self.client.runner.get_languages(inlude_aliases=True):
             await interaction.response.send_modal(SourceCodeModal(self.client.runner.get_run_output, self.client.log_error, ""))
             return
         await interaction.response.send_modal(SourceCodeModal(self.client.runner.get_run_output, self.client.log_error, language))
 
     @run_code.autocomplete('language')
     async def autocomplete_callback(self, _: discord.Interaction, current: str):
-        langs = self.client.runner.get_languages()
+        langs = self.client.runner.get_languages(inlude_aliases=True)
         if current:
             langs = [lang for lang in langs if lang.startswith(current)]
         return [app_commands.Choice(name=lang, value=lang) for lang in langs[:25]]
