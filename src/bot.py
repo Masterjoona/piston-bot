@@ -15,6 +15,7 @@ from cogs.utils.runner import Runner
 class PistonBot(AutoShardedBot):
     def __init__(self, *args, **options):
         super().__init__(*args, **options)
+        self.session = None
         with open('../state/config.json') as conffile:
             self.config = json.load(conffile)
         self.last_errors = []

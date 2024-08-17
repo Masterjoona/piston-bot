@@ -8,7 +8,6 @@ Commands:
     cogs            show currently active extensions / cogs
     error           print the traceback of the last unhandled error to chat
 """
-
 import json
 import typing
 import subprocess
@@ -161,7 +160,7 @@ class Management(commands.Cog, name='Management'):
         aliases=['extensions'],
         hidden=True,
     )
-    async def print_cogs(self, ctx: commands.Context):
+    async def print_cogs(self, ctx):
         loaded = self.client.extensions
         unloaded = [x for x in self.crawl_cogs() if x not in loaded]
         response = ['\n[Loaded extensions]'] + ['\n  ' + x for x in loaded]
