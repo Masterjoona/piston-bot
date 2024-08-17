@@ -4,12 +4,12 @@ from .errors import PistonInvalidContentType, PistonInvalidStatus, PistonNoOutpu
 from discord.ext import commands, tasks
 from discord import Guild, User, Member, Attachment
 from discord.utils import escape_mentions
-from aiohttp import ClientSession, ContentTypeError
+from aiohttp import ContentTypeError
 from .codeswap import add_boilerplate
 
 
 class Runner:
-    def __init__(self, emkc_key: str, session: ClientSession):
+    def __init__(self, emkc_key, session):
         self.languages = dict()  # Store the supported languages and aliases
         self.versions = dict()  # Store version for each language
         self.emkc_key = emkc_key
@@ -53,13 +53,7 @@ class Runner:
     def get_languages(self):
         return sorted(set(self.languages.values()))
 
-    async def send_to_log(
-        self,
-        guild: Guild | None,
-        author: User | Member,
-        language: str,
-        source: str,
-    ):
+    async def send_to_log(self, guild, author, language, source):
         logging_data = {
             'server': guild.name if guild else 'DMChannel',
             'server_id': f'{guild.id}' if guild else '0',
@@ -79,14 +73,7 @@ class Runner:
                 pass
         return True
 
-    async def get_output_with_codeblock(
-        self,
-        guild: Guild | None,
-        author: User | Member,
-        content: str,
-        mention_author: bool,
-        needs_strict_re: bool,
-    ):
+    async def get_output_with_codeblock(self, guild, author, content, mention_author, needs_strict_re):
         if needs_strict_re:
             match = self.run_regex_code_strict.search(content)
         else:
@@ -115,16 +102,16 @@ class Runner:
 
     async def get_output_with_file(
         self,
-        guild: Guild | None,
-        author: User | Member,
-        file: Attachment,
-        input_language: str,
-        output_syntax: str,
-        args: str,
-        stdin: str,
-        mention_author: bool,
-        content: str,
-    ) -> str:
+        guild,
+        author,
+        file,
+        input_language,
+        output_syntax,
+        args,
+        stdin,
+        mention_author,
+        content,
+    ):
         MAX_BYTES = 65535
         if file.size > MAX_BYTES:
             return f'Source file is too big ({file.size}>{MAX_BYTES})'
@@ -169,14 +156,14 @@ class Runner:
 
     async def get_run_output(
         self,
-        guild: Guild | None,
-        author: User | Member,
-        content: str,
-        input_lang: str,
-        output_syntax: str | None,
-        args: str | None,
-        stdin: str | None,
-        mention_author: bool,
+        guild,
+        author,
+        content,
+        input_lang,
+        output_syntax,
+        args,
+        stdin,
+        mention_author,
     ):
         lang = self.languages.get(input_lang, None)
         if not lang:

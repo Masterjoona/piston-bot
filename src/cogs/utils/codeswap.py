@@ -1,4 +1,4 @@
-def add_boilerplate(language: str, source: str):
+def add_boilerplate(language, source):
     if language == 'java':
         return for_java(source)
     if language == 'scala':
@@ -13,7 +13,7 @@ def add_boilerplate(language: str, source: str):
         return for_csharp(source)
     return source
 
-def for_go(source: str):
+def for_go(source):
     if 'main' in source:
         return source
 
@@ -31,7 +31,7 @@ def for_go(source: str):
     code.append('}')
     return '\n'.join(package + imports + code)
 
-def for_c_cpp(source: str):
+def for_c_cpp(source):
     if 'main' in source:
         return source
 
@@ -48,13 +48,13 @@ def for_c_cpp(source: str):
     code.append('}')
     return '\n'.join(imports + code)
 
-def for_csharp(source: str):
+def for_csharp(source):
     if 'class' in source:
         return source
 
     imports=[]
     code = ['class Program{']
-    if 'static void Main' not in source:
+    if not 'static void Main' in source:
         code.append('static void Main(string[] args){')
 
     lines = source.replace(';', ';\n').split('\n')
@@ -64,13 +64,13 @@ def for_csharp(source: str):
         else:
             code.append(line)
 
-    if 'static void Main' not in source:
+    if not 'static void Main' in source:
         code.append('}')
     code.append('}')
 
     return '\n'.join(imports + code).replace(';\n', ';')
 
-def for_java(source: str):
+def for_java(source):
     if 'class' in source:
         return source
 
@@ -88,7 +88,7 @@ def for_java(source: str):
     code.append('}}')
     return '\n'.join(imports + code).replace(';\n',';')
 
-def for_scala(source: str):
+def for_scala(source):
     if any(s in source for s in ('extends App', 'def main', '@main def', '@main() def')):
         return source
 
@@ -97,7 +97,7 @@ def for_scala(source: str):
 
     return f'@main def run(): Unit = {{\n{indented_source}}}\n'
 
-def for_rust(source: str):
+def for_rust(source):
     if 'fn main' in source:
         return source
     imports = []

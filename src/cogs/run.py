@@ -5,7 +5,6 @@ Commands:
     run            Run code using the Piston API
 
 """
-
 # pylint: disable=E0402
 import sys
 from dataclasses import dataclass
@@ -68,7 +67,7 @@ class Run(commands.Cog, name='CodeExecution'):
             needs_strict_re=True,
         )
 
-    async def delete_last_output(self, user_id: int):
+    async def delete_last_output(self, user_id):
         try:
             msg_to_delete = self.run_IO_store[user_id].output
             del self.run_IO_store[user_id]
@@ -80,14 +79,14 @@ class Run(commands.Cog, name='CodeExecution'):
             # Message no longer exists in discord (deleted by server admin)
             return
 
-    @commands.command(aliases=["del"])
-    async def delete(self, ctx: commands.Context):
+    @commands.command(aliases=['del'])
+    async def delete(self, ctx):
         """Delete the most recent output message you caused
         Type "./run" or "./help" for instructions"""
         await self.delete_last_output(ctx.author.id)
 
     @commands.command()
-    async def run(self, ctx: commands.Context, *, source=None):
+    async def run(self, ctx, *, source=None):
         """Run some code
         Type "./run" or "./help" for instructions"""
         if self.client.maintenance_mode:
@@ -120,7 +119,7 @@ class Run(commands.Cog, name='CodeExecution'):
         self.run_IO_store[ctx.author.id] = RunIO(input=ctx.message, output=msg)
 
     @commands.command(hidden=True)
-    async def edit_last_run(self, ctx: commands.Context, *, content=None):
+    async def edit_last_run(self, ctx, *, content=None):
         """Run some edited code and edit previous message"""
         if self.client.maintenance_mode:
             return
@@ -154,7 +153,7 @@ class Run(commands.Cog, name='CodeExecution'):
             return
 
     @commands.command(hidden=True)
-    async def size(self, ctx: commands.Context):
+    async def size(self, ctx):
         if ctx.author.id != 98488345952256000:
             return False
         await ctx.send(
@@ -162,7 +161,7 @@ class Run(commands.Cog, name='CodeExecution'):
             f'\nMessage Cache {len(self.client.cached_messages)} / {get_size(self.client.cached_messages) // 1000} kb\n```')
 
     @commands.Cog.listener()
-    async def on_message_edit(self, before: Message, after: Message):
+    async def on_message_edit(self, before, after):
         if self.client.maintenance_mode:
             return
         if after.author.bot:
@@ -184,8 +183,10 @@ class Run(commands.Cog, name='CodeExecution'):
                 break
 
     @commands.Cog.listener()
-    async def on_message_delete(self, message: Message):
-        if message.author.bot or self.client.maintenance_mode:
+    async def on_message_delete(self, message):
+        if self.client.maintenance_mode:
+            return
+        if message.author.bot:
             return
         if message.author.id not in self.run_IO_store:
             return
