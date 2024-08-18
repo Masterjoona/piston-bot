@@ -47,7 +47,7 @@ class Run(commands.Cog, name='CodeExecution'):
     async def get_run_output(self, ctx: commands.Context):
         # Get parameters to call api depending on how the command was called (file <> codeblock)
         if ctx.message.attachments:
-            [introduction, _, run_output] = await self.client.runner.get_output_with_file(
+            return await self.client.runner.get_output_with_file(
                 ctx.guild,
                 ctx.author,
                 input_language="",
@@ -58,16 +58,14 @@ class Run(commands.Cog, name='CodeExecution'):
                 file=ctx.message.attachments[0],
                 mention_author=True,
             )
-            return introduction + run_output
 
-        [introduction, _, run_output] =  await self.client.runner.get_output_with_codeblock(
+        return await self.client.runner.get_output_with_codeblock(
             ctx.guild,
             ctx.author,
             content=ctx.message.content,
             mention_author=True,
             needs_strict_re=True,
         )
-        return introduction + run_output
 
     async def delete_last_output(self, user_id):
         try:
@@ -109,7 +107,7 @@ class Run(commands.Cog, name='CodeExecution'):
             await self.send_howto(ctx)
             return
         try:
-            run_output = await self.get_run_output(ctx)
+            run_output, _ = await self.get_run_output(ctx)
             msg = await ctx.send(run_output)
         except commands.BadArgument as error:
             embed = Embed(
@@ -129,7 +127,7 @@ class Run(commands.Cog, name='CodeExecution'):
             return
         try:
             msg_to_edit = self.run_IO_store[ctx.author.id].output
-            run_output = await self.get_run_output(ctx)
+            run_output, _ = await self.get_run_output(ctx)
             await msg_to_edit.edit(content=run_output, embed=None)
         except KeyError:
             # Message no longer exists in output store

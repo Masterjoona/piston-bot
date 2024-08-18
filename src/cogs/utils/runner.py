@@ -88,7 +88,7 @@ class Runner:
             match = self.run_regex_code.search(content)
 
         if not match:
-            return 'Invalid command format'
+            return 'Invalid command format', True
 
         language, output_syntax, args, syntax, source, stdin = match.groups()
 
@@ -105,7 +105,7 @@ class Runner:
             return (
                 f'Unsupported language: **{str(language)[:1000]}**\n'
                 '[Request a new language](https://github.com/engineer-man/piston/issues)'
-            )
+            ), True
 
         return await self.get_run_output(
             guild,
@@ -134,11 +134,11 @@ class Runner:
     ):
         MAX_BYTES = 65535
         if file.size > MAX_BYTES:
-            return f'Source file is too big ({file.size}>{MAX_BYTES})'
+            return f'Source file is too big ({file.size}>{MAX_BYTES})', True
 
         filename_split = file.filename.split('.')
         if len(filename_split) < 2:
-            return 'Please provide a source file with a file extension'
+            return 'Please provide a source file with a file extension', True
 
         match = self.run_regex_file.search(content)
         if content and not match:
@@ -156,7 +156,7 @@ class Runner:
             return (
                 f'Unsupported file extension: **{language}**\n'
                 '[Request a new language](https://github.com/engineer-man/piston/issues)'
-            )
+            ), True
 
         source = await file.read()
         try:
@@ -243,7 +243,7 @@ class Runner:
 
         # Return early if no output was received
         if len(run['output'] + comp_stderr) == 0:
-            return f'Your {language_info} code ran without output {mention}'
+            return f'Your {language_info} code ran without output {mention}', False
 
         # Limit output to 30 lines maximum
         output = '\n'.join((comp_stderr + run['output']).split('\n')[:30])
@@ -272,11 +272,7 @@ class Runner:
         if jump_url:
             jump_url = f'from running: {jump_url}'
         introduction = f'{introduction}{jump_url or ""}\n'
-        source = f'```{lang}\n'+ source+ '```\n'
+        #source = f'```{lang}\n'+ source+ '```\n'
         # Use an empty string if no output language is selected
         output_content = f'```{output_syntax or ""}\n' +  output.replace('\0', "")+ '```'
-        return [
-            introduction,
-            source,
-            output_content
-        ]
+        return introduction + output_content, False

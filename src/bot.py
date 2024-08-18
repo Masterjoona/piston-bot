@@ -7,7 +7,7 @@ import traceback
 from datetime import datetime, timezone
 from os import path, listdir
 from discord.ext.commands import AutoShardedBot, Context
-from discord import Activity, AllowedMentions, Intents
+from discord import Activity, AllowedMentions, Intents, Interaction
 from aiohttp import ClientSession, ClientTimeout
 from discord.ext.commands.bot import when_mentioned_or
 from cogs.utils.runner import Runner
@@ -57,7 +57,7 @@ class PistonBot(AutoShardedBot):
         return user.id in self.config['admins']
 
     async def log_error(self, error, error_source=None):
-        is_context = isinstance(error_source, Context)
+        is_context = isinstance(error_source, Context) or isinstance(error_source, Interaction)
         has_attachment = bool(error_source.message.attachments) if is_context else False
         self.last_errors.append((
             error,
