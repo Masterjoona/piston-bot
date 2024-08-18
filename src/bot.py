@@ -57,7 +57,7 @@ class PistonBot(AutoShardedBot):
         return user.id in self.config['admins']
 
     async def log_error(self, error, error_source=None):
-        is_context = isinstance(error_source, Context) or isinstance(error_source, Interaction)
+        is_context = isinstance(error_source, Context)
         has_attachment = bool(error_source.message.attachments) if is_context else False
         self.last_errors.append((
             error,

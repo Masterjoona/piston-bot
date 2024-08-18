@@ -99,7 +99,7 @@ class NoLang(discord.ui.Modal, title="Give language"):
             "Oops! Something went wrong.", ephemeral=True
         )
 
-        await self.log_error(error, error_source="CodeModal")
+        await self.log_error(error, error_source="NoLangModal")
 
 
 class UserCommands(commands.Cog, name="UserCommands"):
@@ -109,6 +109,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
             name="Run Code",
             callback=self.run_code_ctx_menu,
         )
+        #self.ctx_menu.error(self.run_code_ctx_menu_error)
         self.client.tree.add_command(self.ctx_menu)
 
     async def cog_app_command_error(self, interaction: Interaction, error: app_commands.AppCommandError):
@@ -167,7 +168,6 @@ class UserCommands(commands.Cog, name="UserCommands"):
         args: str = "",
         stdin: str = "",
     ):
-        await interaction.response.defer()
         output, errored = await self.client.runner.get_output_with_file(
             guild=interaction.guild,
             author=interaction.user,
@@ -200,10 +200,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
 
     @app_commands.user_install()
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-    async def run_code_ctx_menu(
-        self, interaction: Interaction, message: discord.Message
-    ):
-        await interaction.response.defer()
+    async def run_code_ctx_menu(self, interaction: Interaction, message: discord.Message):
         if len(message.attachments) > 0:
             output, errored = await self.client.runner.get_output_with_file(
                 guild=interaction.guild,
@@ -244,6 +241,14 @@ class UserCommands(commands.Cog, name="UserCommands"):
             await interaction.followup.send(output, ephemeral=True)
             return
         await interaction.followup.send(output)
+
+    async def run_code_ctx_menu_error(self, interaction: discord.Interaction, error: Exception):
+        await self.client.log_error(error, interaction)
+        print(error)
+        if isinstance(error, commands.BadArgument):
+            await interaction.followup.send(str(error), ephemeral=True)
+            return
+        await interaction.followup.send("Oops! Something went wrong.", ephemeral=True)
 
 
 async def setup(client):
