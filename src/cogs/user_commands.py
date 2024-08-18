@@ -30,6 +30,7 @@ class SourceCodeModal(discord.ui.Modal, title="Run Code"):
         self.add_item(self.code)
 
     async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         output, errored = await self.get_run_output(
             guild=interaction.guild,
             author=interaction.user,
@@ -41,22 +42,22 @@ class SourceCodeModal(discord.ui.Modal, title="Run Code"):
             mention_author=False,
         )
         if errored:
-            await interaction.response.send_message(output, ephemeral=True)
+            await interaction.followup.send(output, ephemeral=True)
             return
 
         if len(self.code.value) > 1000:
             file = discord.File(filename=f"source_code.{self.lang.value}", fp=BytesIO(self.code.value.encode('utf-8')))
-            await interaction.response.send_message("Here is your input:", file=file)
+            await interaction.followup.send("Here is your input:", file=file)
             await interaction.followup.send(output)
             return
         formatted_src = f"```{self.lang.value}\n{self.code.value}\n```"
-        await interaction.response.send_message("Here is your input:" + formatted_src)
+        await interaction.followup.send("Here is your input:" + formatted_src)
         await interaction.followup.send(output)
 
     async def on_error(
         self, interaction: discord.Interaction, error: Exception
     ) -> None:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "Oops! Something went wrong.", ephemeral=True
         )
 
@@ -76,6 +77,7 @@ class NoLang(discord.ui.Modal, title="Give language"):
     )
 
     async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         output, errored = await self.get_output_with_codeblock(
             guild=interaction.guild,
             author=interaction.user,
@@ -86,14 +88,14 @@ class NoLang(discord.ui.Modal, title="Give language"):
             jump_url=self.message.jump_url,
         )
         if errored:
-            await interaction.response.send_message(output, ephemeral=True)
+            await interaction.followup.send(output, ephemeral=True)
             return
-        await interaction.response.send_message(output)
+        await interaction.followup.send(output)
 
     async def on_error(
         self, interaction: discord.Interaction, error: Exception
     ) -> None:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "Oops! Something went wrong.", ephemeral=True
         )
 
@@ -114,16 +116,16 @@ class UserCommands(commands.Cog, name="UserCommands"):
             error_message = str(error.original)
             if error_message:
                 error_message = f'`{error_message}` '
-            await interaction.response.send_message(f'API Error {error_message}- Please try again later', ephemeral=True)
+            await interaction.followup.send(f'API Error {error_message}- Please try again later', ephemeral=True)
             await self.client.log_error(error, Interaction)
             return
 
         if isinstance(error.original, AsyncTimeoutError):
-            await interaction.response.send_message(f'API Timeout - Please try again later', ephemeral=True)
+            await interaction.followup.send(f'API Timeout - Please try again later', ephemeral=True)
             await self.client.log_error(error, Interaction)
             return
         await self.client.log_error(error, Interaction)
-        await interaction.response.send_message(f"An error occurred: {error}", ephemeral=True)
+        await interaction.followup.send(f"An error occurred: {error}", ephemeral=True)
 
     @app_commands.command(name="run_code", description="Open a modal to input code")
     @app_commands.user_install()
@@ -165,6 +167,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
         args: str = "",
         stdin: str = "",
     ):
+        await interaction.response.defer()
         output, errored = await self.client.runner.get_output_with_file(
             guild=interaction.guild,
             author=interaction.user,
@@ -182,17 +185,17 @@ class UserCommands(commands.Cog, name="UserCommands"):
                     NoLang(self.client.runner.get_output_with_file, self.client.log_error, interaction.message)
                 )
                 return
-            await interaction.response.send_message(output, ephemeral=True)
+            await interaction.followup.send(output, ephemeral=True)
             return
         file_contents = await file.read()
         if len(file_contents) > 1000:
             output_file = discord.File(filename=file.filename, fp=BytesIO(file_contents))
-            await interaction.response.send_message("Here is your input:", file=output_file)
+            await interaction.followup.send("Here is your input:", file=output_file)
             await interaction.followup.send(output)
             return
 
         formatted_src = f"```{language}\n{file_contents.decode()}\n```"
-        await interaction.response.send_message("Here is your input:" + formatted_src)
+        await interaction.followup.send("Here is your input:" + formatted_src)
         await interaction.followup.send(output)
 
     @app_commands.user_install()
@@ -200,6 +203,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
     async def run_code_ctx_menu(
         self, interaction: Interaction, message: discord.Message
     ):
+        await interaction.response.defer()
         if len(message.attachments) > 0:
             output, errored = await self.client.runner.get_output_with_file(
                 guild=interaction.guild,
@@ -219,9 +223,9 @@ class UserCommands(commands.Cog, name="UserCommands"):
                         NoLang(self.client.runner.get_output_with_codeblock, self.client.log_error, message)
                     )
                     return
-                await interaction.response.send_message(output, ephemeral=True)
+                await interaction.followup.send(output, ephemeral=True)
                 return
-            await interaction.response.send_message(output)
+            await interaction.followup.send(output)
             return
         output, errored = await self.client.runner.get_output_with_codeblock(
             guild=interaction.guild,
@@ -237,9 +241,9 @@ class UserCommands(commands.Cog, name="UserCommands"):
                     NoLang(self.client.runner.get_output_with_codeblock, self.client.log_error, message)
                 )
                 return
-            await interaction.response.send_message(output, ephemeral=True)
+            await interaction.followup.send(output, ephemeral=True)
             return
-        await interaction.response.send_message(output)
+        await interaction.followup.send(output)
 
 
 async def setup(client):
