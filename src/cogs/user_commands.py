@@ -31,7 +31,7 @@ class SourceCodeModal(discord.ui.Modal, title="Run Code"):
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        output, errored = await self.get_run_output(
+        output = await self.get_run_output(
             guild=interaction.guild,
             author=interaction.user,
             content=self.code.value,
@@ -41,9 +41,6 @@ class SourceCodeModal(discord.ui.Modal, title="Run Code"):
             stdin=None,
             mention_author=False,
         )
-        if errored:
-            await interaction.followup.send(output, ephemeral=True)
-            return
 
         if len(self.code.value) > 1000:
             file = discord.File(filename=f"source_code.{self.lang.value}", fp=BytesIO(self.code.value.encode('utf-8')))
@@ -64,9 +61,10 @@ class SourceCodeModal(discord.ui.Modal, title="Run Code"):
         await self.log_error(error, error_source="CodeModal")
 
 class NoLang(discord.ui.Modal, title="Give language"):
-    def __init__(self, get_output_with_codeblock, log_error, message):
+    def __init__(self, get_api_params_with_codeblock, get_run_output, log_error, message):
         super().__init__()
-        self.get_output_with_codeblock = get_output_with_codeblock
+        self.get_api_params_with_codeblock = get_api_params_with_codeblock
+        self.get_run_output = get_run_output
         self.log_error = log_error
         self.message = message
 
@@ -77,8 +75,7 @@ class NoLang(discord.ui.Modal, title="Give language"):
     )
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-        output, errored = await self.get_output_with_codeblock(
+        source, language, output_syntax, args, stdin = await self.get_api_params_with_codeblock(
             guild=interaction.guild,
             author=interaction.user,
             content=self.message.content,
@@ -87,9 +84,18 @@ class NoLang(discord.ui.Modal, title="Give language"):
             input_lang=self.lang.value,
             jump_url=self.message.jump_url,
         )
-        if errored:
-            await interaction.followup.send(output, ephemeral=True)
-            return
+
+        await interaction.response.defer()
+        output = await self.get_run_output(
+            guild=interaction.guild,
+            author=interaction.user,
+            content=source,
+            lang=language,
+            output_syntax=output_syntax,
+            args=args,
+            stdin=stdin,
+            mention_author=False,
+        )
         await interaction.followup.send(output)
 
     async def on_error(
@@ -109,7 +115,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
             name="Run Code",
             callback=self.run_code_ctx_menu,
         )
-        #self.ctx_menu.error(self.run_code_ctx_menu_error)
+        self.ctx_menu.error(self.run_code_ctx_menu_error)
         self.client.tree.add_command(self.ctx_menu)
 
     async def cog_app_command_error(self, interaction: Interaction, error: app_commands.AppCommandError):
@@ -168,7 +174,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
         args: str = "",
         stdin: str = "",
     ):
-        output, errored = await self.client.runner.get_output_with_file(
+        source, language, output_syntax, args, stdin = await self.client.runner.get_api_params_with_file(
             guild=interaction.guild,
             author=interaction.user,
             content="",
@@ -179,22 +185,27 @@ class UserCommands(commands.Cog, name="UserCommands"):
             stdin=stdin,
             mention_author=False,
         )
-        if errored:
-            if "Unsupported language" in output:
-                await interaction.response.send_modal(
-                    NoLang(self.client.runner.get_output_with_file, self.client.log_error, interaction.message)
-                )
-                return
-            await interaction.followup.send(output, ephemeral=True)
-            return
-        file_contents = await file.read()
-        if len(file_contents) > 1000:
-            output_file = discord.File(filename=file.filename, fp=BytesIO(file_contents))
+        await interaction.response.defer()
+        output = await self.client.runner.get_run_output(
+            guild=interaction.guild,
+            author=interaction.user,
+            content=source,
+            lang=language,
+            output_syntax=output_syntax,
+            args=args,
+            stdin=stdin,
+            mention_author=False,
+            jump_url=None,
+        )
+
+
+        if len(source) > 1000:
+            output_file = discord.File(filename=file.filename, fp=BytesIO(source))
             await interaction.followup.send("Here is your input:", file=output_file)
             await interaction.followup.send(output)
             return
 
-        formatted_src = f"```{language}\n{file_contents.decode()}\n```"
+        formatted_src = f"```{language}\n{source}\n```"
         await interaction.followup.send("Here is your input:" + formatted_src)
         await interaction.followup.send(output)
 
@@ -202,53 +213,52 @@ class UserCommands(commands.Cog, name="UserCommands"):
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def run_code_ctx_menu(self, interaction: Interaction, message: discord.Message):
         if len(message.attachments) > 0:
-            output, errored = await self.client.runner.get_output_with_file(
-                guild=interaction.guild,
-                author=interaction.user,
+            source, language, output_syntax, args, stdin = await self.client.runner.get_api_params_with_file(
                 content=message.content,
                 file=message.attachments[0],
                 input_language="",
                 output_syntax="",
                 args="",
-                stdin="",
-                mention_author=False,
-                jump_url=message.jump_url,
+                stdin=""
             )
-            if errored:
-                if "Unsupported language" in output:
-                    await interaction.response.send_modal(
-                        NoLang(self.client.runner.get_output_with_codeblock, self.client.log_error, message)
-                    )
-                    return
-                await interaction.followup.send(output, ephemeral=True)
-                return
-            await interaction.followup.send(output)
-            return
-        output, errored = await self.client.runner.get_output_with_codeblock(
+        else:
+            source, language, output_syntax, args, stdin = await self.client.runner.get_api_params_with_codeblock(
+                content=message.content,
+                needs_strict_re=False,
+                input_lang=None,
+            )
+        await interaction.response.defer()
+        output = await self.client.runner.get_run_output(
             guild=interaction.guild,
             author=interaction.user,
-            content=message.content,
+            content=source,
+            lang=language,
+            output_syntax=output_syntax,
+            args=args,
+            stdin=stdin,
             mention_author=False,
-            needs_strict_re=False,
             jump_url=message.jump_url,
         )
-        if errored:
-            if "Unsupported language" in output:
-                await interaction.response.send_modal(
-                    NoLang(self.client.runner.get_output_with_codeblock, self.client.log_error, message)
-                )
-                return
-            await interaction.followup.send(output, ephemeral=True)
-            return
         await interaction.followup.send(output)
 
     async def run_code_ctx_menu_error(self, interaction: discord.Interaction, error: Exception):
         await self.client.log_error(error, interaction)
-        print(error)
-        if isinstance(error, commands.BadArgument):
-            await interaction.followup.send(str(error), ephemeral=True)
+        to_user = ["No source code", "Invalid command"]
+        string_error = str(error)
+        if "Unsupported lang" in string_error:
+            await interaction.response.send_modal(
+                NoLang(
+                    self.client.runner.get_api_params_with_codeblock,
+                    self.client.runner.get_run_output,
+                    self.client.log_error,
+                    interaction.message
+                    )
+                )
             return
-        await interaction.followup.send("Oops! Something went wrong.", ephemeral=True)
+        if any(error in string_error for error in to_user):
+            await interaction.response.send_message(string_error.split("BadArgument: ")[1], ephemeral=True)
+            return
+        await interaction.response.send_message("Oops! Something went wrong.", ephemeral=True)
 
 
 async def setup(client):

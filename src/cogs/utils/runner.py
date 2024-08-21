@@ -52,6 +52,9 @@ class Runner:
     def get_languages(self, inlude_aliases=False):
         return sorted(set(self.languages.keys() if inlude_aliases else self.languages.values()))
 
+    def get_language(self, language):
+        return self.languages.get(language, None)
+
     async def send_to_log(self, guild, author, language, source):
         logging_data = {
             'server': guild.name if guild else 'DMChannel',
@@ -72,23 +75,21 @@ class Runner:
                 pass
         return True
 
-    async def get_output_with_codeblock(
+    async def get_api_params_with_codeblock(
         self,
-        guild,
-        author,
         content,
-        mention_author,
         needs_strict_re,
         input_lang=None,
-        jump_url=None
         ):
+        if content.count('```') != 2:
+            raise commands.BadArgument('Invalid command format (missing codeblock?)')
         if needs_strict_re:
             match = self.run_regex_code_strict.search(content)
         else:
             match = self.run_regex_code.search(content)
 
         if not match:
-            return 'Invalid command format', True
+            raise commands.BadArgument('Invalid command format')
 
         language, output_syntax, args, syntax, source, stdin = match.groups()
 
@@ -102,35 +103,21 @@ class Runner:
             language = language.lower()
 
         if language not in self.languages:
-            return (
+            raise commands.BadArgument(
                 f'Unsupported language: **{str(language)[:1000]}**\n'
                 '[Request a new language](https://github.com/engineer-man/piston/issues)'
-            ), True
+            )
 
-        return await self.get_run_output(
-            guild,
-            author,
-            source,
-            language,
-            output_syntax,
-            args,
-            stdin,
-            mention_author,
-            jump_url,
-        )
+        return source, language, output_syntax, args, stdin
 
-    async def get_output_with_file(
+    async def get_api_params_with_file(
         self,
-        guild,
-        author,
         file,
         input_language,
         output_syntax,
         args,
         stdin,
-        mention_author,
         content,
-        jump_url=None,
     ):
         MAX_BYTES = 65535
         if file.size > MAX_BYTES:
@@ -153,47 +140,31 @@ class Runner:
         language = language.lower()
 
         if language not in self.languages:
-            return (
-                f'Unsupported file extension: **{language}**\n'
+            raise commands.BadArgument(
+                f'Unsupported language: **{str(language)[:1000]}**\n'
                 '[Request a new language](https://github.com/engineer-man/piston/issues)'
-            ), True
+            )
 
         source = await file.read()
         try:
             source = source.decode('utf-8')
         except UnicodeDecodeError as e:
             return str(e)
-        return await self.get_run_output(
-            guild,
-            author,
-            source,
-            language,  # type: ignore
-            output_syntax,
-            args,
-            stdin,
-            mention_author,
-            jump_url,
-        )
+        return source, language, output_syntax, args, stdin
+
 
     async def get_run_output(
         self,
         guild,
         author,
         content,
-        input_lang,
+        lang,
         output_syntax,
         args,
         stdin,
         mention_author,
         jump_url=None,
     ):
-        lang = self.languages.get(input_lang, None)
-        if not lang:
-            return (
-                f'Unsupported language: **{str(input_lang)}**\n'
-                '[Request a new language](https://github.com/engineer-man/piston/issues)'
-            )
-
         version = self.versions[lang]
 
         # Add boilerplate code to supported languages
@@ -243,7 +214,7 @@ class Runner:
 
         # Return early if no output was received
         if len(run['output'] + comp_stderr) == 0:
-            return f'Your {language_info} code ran without output {mention}', False
+            return f'Your {language_info} code ran without output {mention}'
 
         # Limit output to 30 lines maximum
         output = '\n'.join((comp_stderr + run['output']).split('\n')[:30])
@@ -275,4 +246,4 @@ class Runner:
         #source = f'```{lang}\n'+ source+ '```\n'
         # Use an empty string if no output language is selected
         output_content = f'```{output_syntax or ""}\n' +  output.replace('\0', "")+ '```'
-        return introduction + output_content, False
+        return introduction + output_content
