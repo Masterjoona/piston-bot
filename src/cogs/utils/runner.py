@@ -1,6 +1,6 @@
 import re
 import json
-from .errors import PistonInvalidContentType, PistonInvalidStatus, PistonNoOutput
+from .errors import PistonInvalidContentType, PistonInvalidStatus, PistonNoOutput, NoLanguageFoundError
 from discord.ext import commands, tasks
 from discord.utils import escape_mentions
 from aiohttp import ContentTypeError
@@ -103,7 +103,7 @@ class Runner:
             language = language.lower()
 
         if language not in self.languages:
-            raise commands.BadArgument(
+            raise NoLanguageFoundError(
                 f'Unsupported language: **{str(language)[:1000]}**\n'
                 '[Request a new language](https://github.com/engineer-man/piston/issues)'
             )
@@ -140,7 +140,7 @@ class Runner:
         language = language.lower()
 
         if language not in self.languages:
-            raise commands.BadArgument(
+            raise NoLanguageFoundError(
                 f'Unsupported language: **{str(language)[:1000]}**\n'
                 '[Request a new language](https://github.com/engineer-man/piston/issues)'
             )

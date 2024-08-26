@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands, Interaction, Attachment
 from discord.ext import commands
-from .utils.errors import PistonError
+from .utils.errors import PistonError, NoLanguageFoundError
 from asyncio import TimeoutError as AsyncTimeoutError
 from io import BytesIO
 
@@ -58,7 +58,7 @@ class SourceCodeModal(discord.ui.Modal, title="Run Code"):
             "Oops! Something went wrong.", ephemeral=True
         )
 
-        await self.log_error(error, error_source="CodeModal")
+        await self.log_error(error, error_source="SourceCodeModal")
 
 class NoLang(discord.ui.Modal, title="Give language"):
     def __init__(self, get_api_params_with_codeblock, get_run_output, log_error, message):
@@ -115,7 +115,6 @@ class UserCommands(commands.Cog, name="UserCommands"):
             name="Run Code",
             callback=self.run_code_ctx_menu,
         )
-        self.ctx_menu.error(self.run_code_ctx_menu_error)
         self.client.tree.add_command(self.ctx_menu)
 
     async def cog_app_command_error(self, interaction: Interaction, error: app_commands.AppCommandError):
@@ -132,7 +131,7 @@ class UserCommands(commands.Cog, name="UserCommands"):
             await self.client.log_error(error, Interaction)
             return
         await self.client.log_error(error, Interaction)
-        await interaction.followup.send(f"An error occurred: {error}", ephemeral=True)
+        await interaction.followup.send(f'{error.original}', ephemeral=True)
 
     @app_commands.command(name="run_code", description="Open a modal to input code")
     @app_commands.user_install()
@@ -212,54 +211,46 @@ class UserCommands(commands.Cog, name="UserCommands"):
     @app_commands.user_install()
     @app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
     async def run_code_ctx_menu(self, interaction: Interaction, message: discord.Message):
-        if len(message.attachments) > 0:
-            source, language, output_syntax, args, stdin = await self.client.runner.get_api_params_with_file(
-                content=message.content,
-                file=message.attachments[0],
-                input_language="",
-                output_syntax="",
-                args="",
-                stdin=""
+        try:
+            if len(message.attachments) > 0:
+                source, language, output_syntax, args, stdin = await self.client.runner.get_api_params_with_file(
+                    content=message.content,
+                    file=message.attachments[0],
+                    input_language="",
+                    output_syntax="",
+                    args="",
+                    stdin=""
+                )
+            else:
+                source, language, output_syntax, args, stdin = await self.client.runner.get_api_params_with_codeblock(
+                    content=message.content,
+                    needs_strict_re=False,
+                    input_lang=None,
+                )
+            await interaction.response.defer()
+            output = await self.client.runner.get_run_output(
+                guild=interaction.guild,
+                author=interaction.user,
+                content=source,
+                lang=language,
+                output_syntax=output_syntax,
+                args=args,
+                stdin=stdin,
+                mention_author=False,
+                jump_url=message.jump_url,
             )
-        else:
-            source, language, output_syntax, args, stdin = await self.client.runner.get_api_params_with_codeblock(
-                content=message.content,
-                needs_strict_re=False,
-                input_lang=None,
-            )
-        await interaction.response.defer()
-        output = await self.client.runner.get_run_output(
-            guild=interaction.guild,
-            author=interaction.user,
-            content=source,
-            lang=language,
-            output_syntax=output_syntax,
-            args=args,
-            stdin=stdin,
-            mention_author=False,
-            jump_url=message.jump_url,
-        )
-        await interaction.followup.send(output)
-
-    async def run_code_ctx_menu_error(self, interaction: discord.Interaction, error: Exception):
-        await self.client.log_error(error, interaction)
-        to_user = ["No source code", "Invalid command"]
-        string_error = str(error)
-        if "Unsupported lang" in string_error:
+            await interaction.followup.send(output)
+        except NoLanguageFoundError:
             await interaction.response.send_modal(
                 NoLang(
                     self.client.runner.get_api_params_with_codeblock,
                     self.client.runner.get_run_output,
                     self.client.log_error,
-                    interaction.message
-                    )
+                    message,
                 )
-            return
-        if any(error in string_error for error in to_user):
-            await interaction.response.send_message(string_error.split("BadArgument: ")[1], ephemeral=True)
-            return
-        await interaction.response.send_message("Oops! Something went wrong.", ephemeral=True)
-
+            )
+        except commands.BadArgument as e:
+            await interaction.followup.send(str(e), ephemeral=True)
 
 async def setup(client):
     await client.add_cog(UserCommands(client))
